@@ -429,11 +429,11 @@ namespace PipServices3.SqlServer.Persistence
 
             try
             {
-                await ExecuteNonQuery("TRUNCATE TABLE " + _tableName);
+                await ExecuteNonQuery("TRUNCATE TABLE " + QuoteIdentifier(_tableName));
             }
             catch (Exception ex)
             {
-                throw new ConnectionException(correlationId, "CONNECT_FAILED", "Connection to postgres failed")
+                throw new ConnectionException(correlationId, "CONNECT_FAILED", "Connection to sqlserver failed")
                     .WithCause(ex);
             }
         }
