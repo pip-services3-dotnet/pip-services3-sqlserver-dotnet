@@ -1,6 +1,7 @@
 ﻿using PipServices3.Commons.Convert;
 using PipServices3.Commons.Data;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
@@ -52,6 +53,17 @@ namespace PipServices3.SqlServer.Persistence
         {
             if (value == null) return null;
             return AnyValueMap.FromTuples("id", value.Id, "data", JsonConverter.ToJson(value));
+        }
+
+        protected override void AddParameter(SqlCommand cmd, string name, object value)
+        {
+            if (value is T || value is Dictionary<string, object>)
+            {
+                cmd.Parameters.AddWithValue(name, JsonConverter.ToJson(value));
+                return;
+            }
+
+            base.AddParameter(cmd, name, value);
         }
 
         ///// <summary>
