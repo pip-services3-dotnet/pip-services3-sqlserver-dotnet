@@ -19,8 +19,7 @@ using System.Data.SqlClient;
 namespace PipServices3.SqlServer.Persistence
 {
     /// <summary>
-    /// Abstract persistence component that stores data in SqlServer
-    /// and is based using Mongoose object relational mapping.
+    /// Abstract persistence component that stores data in SQLServer using plain driver.
     /// 
     /// This is the most basic persistence component that is only
     /// able to store data items of any type.Specific CRUD operations 
