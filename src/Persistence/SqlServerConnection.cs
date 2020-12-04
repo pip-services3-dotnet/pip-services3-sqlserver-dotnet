@@ -47,9 +47,9 @@ namespace PipServices3.SqlServer.Persistence
     public class SqlServerConnection : IReferenceable, IReconfigurable, IOpenable
     {
         private ConfigParams _defaultConfig = ConfigParams.FromTuples(
-            "options.connect_timeout", 15000,
-            "options.request_timeout", 15000,
-            "options.idle_timeout", 10000,
+            "options.connect_timeout", 15,
+            "options.connect_retry_count", 1,
+            "options.connect_retry_interval", 10,
             "options.max_pool_size", 3
         );
 
@@ -167,13 +167,15 @@ namespace PipServices3.SqlServer.Persistence
         {
             var maxPoolSize = _options.GetAsNullableInteger("max_pool_size");
             var connectTimeout = _options.GetAsNullableInteger("connect_timeout");
-            var idleTimeout = _options.GetAsNullableInteger("idle_timeout");
+            var connectRetryCount = _options.GetAsNullableInteger("connect_retry_count");
+            var connectRetryInterval = _options.GetAsNullableInteger("connect_retry_interval");
 
             ConfigParams settings = new ConfigParams();
 
-            //if (maxPoolSize.HasValue) settings["Maximum Pool Size"] = maxPoolSize.Value.ToString();
-            //if (connectTimeout.HasValue) settings["Timeout"] = connectTimeout.Value.ToString();
-            //if (idleTimeout.HasValue) settings["Keepalive"] = idleTimeout.Value.ToString();
+            if (maxPoolSize.HasValue) settings["Max Pool Size"] = maxPoolSize.Value.ToString();
+            if (connectTimeout.HasValue) settings["Connection Timeout"] = connectTimeout.Value.ToString();
+            if (connectRetryCount.HasValue) settings["ConnectRetryCount"] = connectRetryCount.Value.ToString();
+            if (connectRetryInterval.HasValue) settings["ConnectRetryInterval"] = connectRetryInterval.Value.ToString();
 
             return settings;
         }

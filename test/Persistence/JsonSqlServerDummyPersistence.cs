@@ -16,17 +16,15 @@ namespace PipServices3.SqlServer.Persistence
 
         public async Task<DataPage<Dummy>> GetPageByFilterAsync(string correlationId, FilterParams filter, PagingParams paging)
         {
-            filter ??= new FilterParams();
-            var key = filter.GetAsNullableString("key");
-
-            var filterCondition = "";
-            if (key != null)
-                filterCondition += "JSON_VALUE([data],'$.key')='" + key + "'";
-
-            return await base.GetPageByFilterAsync(correlationId, filterCondition, paging, null, null);
+            return await base.GetPageByFilterAsync(correlationId, ComposeFilter(filter), paging, null, null);
         }
 
         public async Task<long> GetCountByFilterAsync(string correlationId, FilterParams filter)
+        {
+            return await base.GetCountByFilterAsync(correlationId, ComposeFilter(filter));
+        }
+
+        private string ComposeFilter(FilterParams filter)
         {
             filter ??= new FilterParams();
             var key = filter.GetAsNullableString("key");
@@ -34,8 +32,8 @@ namespace PipServices3.SqlServer.Persistence
             var filterCondition = "";
             if (key != null)
                 filterCondition += "JSON_VALUE([data],'$.key')='" + key + "'";
-
-            return await base.GetCountByFilterAsync(correlationId, filterCondition);
+            
+            return filterCondition;
         }
     }
 }

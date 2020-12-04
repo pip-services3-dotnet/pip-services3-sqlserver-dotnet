@@ -14,4 +14,4 @@ RUN dotnet restore test/test.csproj
 COPY . .
 
 # Test
-CMD [ "dotnet", "test", "test/test.csproj" ]
+CMD [ "sh","-c","sleep 40 && dotnet test test/test.csproj" ]

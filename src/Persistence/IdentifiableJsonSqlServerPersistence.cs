@@ -38,7 +38,7 @@ namespace PipServices3.SqlServer.Persistence
         {
             if (map != null && map.TryGetValue("data", out object value) && value != null)
             {
-                return JsonConverter.FromJson<T>(value.ToString());
+                return base.ConvertToPublic(value as AnyValueMap);
             }
 
             return default;
@@ -52,18 +52,7 @@ namespace PipServices3.SqlServer.Persistence
         protected override AnyValueMap ConvertFromPublic(T value)
         {
             if (value == null) return null;
-            return AnyValueMap.FromTuples("id", value.Id, "data", JsonConverter.ToJson(value));
-        }
-
-        protected override void AddParameter(SqlCommand cmd, string name, object value)
-        {
-            if (value is T || value is Dictionary<string, object>)
-            {
-                cmd.Parameters.AddWithValue(name, JsonConverter.ToJson(value));
-                return;
-            }
-
-            base.AddParameter(cmd, name, value);
+            return AnyValueMap.FromTuples("id", value.Id, "data", base.ConvertFromPublic(value));
         }
 
         ///// <summary>
