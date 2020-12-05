@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using PipServices3.Commons.Config;
@@ -107,11 +108,15 @@ namespace PipServices3.SqlServer.Connect
                 }
 
                 var host = connection.Host;
-                if (!string.IsNullOrWhiteSpace(host)) connectionConfig["Data Source"] = host;
+                if (!string.IsNullOrWhiteSpace(host))
+                {
+                    var dataSource = "tcp:" + host;
 
-                // not supported
-                //var port = connection.Port;
-                //if (port != default) connectionConfig["Port"] = port.ToString();
+					var port = connection.Port;
+					if (port != default) dataSource = dataSource + "," + port.ToString();
+
+					connectionConfig["Data Source"] = dataSource;
+                }
 
                 var database = connection.GetAsNullableString("database");
                 if (!string.IsNullOrWhiteSpace(database)) connectionConfig["Initial Catalog"] = database;
