@@ -19,8 +19,7 @@ using System.Data.SqlClient;
 namespace PipServices3.SqlServer.Persistence
 {
     /// <summary>
-    /// Abstract persistence component that stores data in SqlServer
-    /// and is based using Mongoose object relational mapping.
+    /// Abstract persistence component that stores data in SQLServer using plain driver.
     /// 
     /// This is the most basic persistence component that is only
     /// able to store data items of any type.Specific CRUD operations 
@@ -32,13 +31,13 @@ namespace PipServices3.SqlServer.Persistence
     /// - collection:                  (optional) SqlServer collection name
     /// 
     /// connection(s):
-    /// - discovery_key:             (optional) a key to retrieve the connection from <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a>
+    /// - discovery_key:             (optional) a key to retrieve the connection from <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a>
     /// - host:                      host name or IP address
     /// - port:                      port number (default: 27017)
     /// - uri:                       resource URI or connection string with all parameters in it
     /// 
     /// credential(s):
-    /// - store_key:                 (optional) a key to retrieve the credentials from <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_auth_1_1_i_credential_store.html">ICredentialStore</a>
+    /// - store_key:                 (optional) a key to retrieve the credentials from <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_auth_1_1_i_credential_store.html">ICredentialStore</a>
     /// - username:                  (optional) user name
     /// - password:                  (optional) user password
     /// 
@@ -46,14 +45,13 @@ namespace PipServices3.SqlServer.Persistence
     /// - max_pool_size:             (optional) maximum connection pool size (default: 2)
     /// - keep_alive:                (optional) enable connection keep alive (default: true)
     /// - connect_timeout:           (optional) connection timeout in milliseconds (default: 5 sec)
-    /// - auto_reconnect:            (optional) enable auto reconnection (default: true)
     /// - max_page_size:             (optional) maximum page size (default: 100)
     /// - debug:                     (optional) enable debug output (default: false).
     /// 
     /// ### References ###
     /// 
-    /// - *:logger:*:*:1.0           (optional) <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_log_1_1_i_logger.html">ILogger</a> components to pass log messages
-    /// - *:discovery:*:*:1.0        (optional) <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a> services
+    /// - *:logger:*:*:1.0           (optional) <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_log_1_1_i_logger.html">ILogger</a> components to pass log messages
+    /// - *:discovery:*:*:1.0        (optional) <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a> services
     /// - *:credential-store:*:*:1.0 (optional) Credential stores to resolve credentials
     /// </summary>
     /// <typeparam name="T">the class type</typeparam>
@@ -101,15 +99,13 @@ namespace PipServices3.SqlServer.Persistence
     {
         private static ConfigParams _defaultConfig = ConfigParams.FromTuples(
             "collection", null,
-            "dependencies.connection", "*:connection:postgres:*:1.0",
+            "dependencies.connection", "*:connection:sqlserver:*:1.0",
 
             // connections.*
             // credential.*
 
             "options.max_pool_size", 2,
-            "options.keep_alive", 1,
             "options.connect_timeout", 5,
-            "options.auto_reconnect", true,
             "options.max_page_size", 100,
             "options.debug", true
         );
@@ -156,7 +152,6 @@ namespace PipServices3.SqlServer.Persistence
         private IReferences _references;
         private bool _localConnection;
         private bool _opened;
-        private Dictionary<string, string> _namesMap = new Dictionary<string, string>(); 
 
         /// <summary>
         /// Creates a new instance of the persistence component.
@@ -168,25 +163,6 @@ namespace PipServices3.SqlServer.Persistence
                 throw new ArgumentNullException(nameof(tableName));
 
             _tableName = tableName;
-
-            _namesMap = CreateNamesMap();
-        }
-
-        private Dictionary<string, string> CreateNamesMap()
-        {
-            var attrType = typeof(DataMemberAttribute);
-            var result = new Dictionary<string, string>();
-
-            foreach (PropertyInfo prop in typeof(T).GetProperties())
-            {
-                var memberName = (prop.GetCustomAttributes(attrType, true).FirstOrDefault() is DataMemberAttribute dataMemberAttr) 
-                    ? dataMemberAttr.Name 
-                    : prop.Name.ToLower();
-
-                result.Add(prop.Name, memberName);
-            }
-
-            return result;
         }
 
         /// <summary>
@@ -284,20 +260,16 @@ namespace PipServices3.SqlServer.Persistence
         /// <returns>converted object in public format</returns>
         protected virtual T ConvertToPublic(AnyValueMap map)
         {
-            var newMap = ConvertDateTimeToUtc(map);
-            newMap = ConvertNamesToPublic(newMap);
-
-            var item = new T();
-            ObjectWriter.SetProperties(item, newMap);
-            
-            return item;
+            var json = JsonConverter.ToJson(map);
+            T obj = JsonConverter.FromJson<T>(json);
+            return obj;
         }
 
         protected virtual AnyValueMap ConvertFromPublic(T value)
         {
-            var map = new AnyValueMap(MapConverter.ToMap(value));
-            map = ConvertNamesFromPublic(map);
-            
+            var json = JsonConverter.ToJson(value);
+            var map = new AnyValueMap(MapConverter.ToMap(JsonConverter.FromJson(json)));
+
             return map;
         }
 
@@ -308,57 +280,6 @@ namespace PipServices3.SqlServer.Persistence
             if (value[0] == '[') return value;
 
             return '[' + value.Replace(".", "].[") + ']';
-        }
-
-        private AnyValueMap ConvertNamesToPublic(AnyValueMap map)
-        {
-            AnyValueMap newMap = new AnyValueMap();
-
-            foreach (var key in map.Keys)
-            {
-                var name = _namesMap
-                    .Where(x => x.Value == key)
-                    .Select(x => x.Key)
-                    .FirstOrDefault();
-
-                newMap[name] = map[key];
-            }
-
-            return newMap;
-        }
-
-        private AnyValueMap ConvertNamesFromPublic(AnyValueMap map)
-        {
-            AnyValueMap newMap = new AnyValueMap();
-
-            foreach (var key in map.Keys)
-            {
-                var name = _namesMap
-                    .Where(x => x.Key == key)
-                    .Select(x => x.Value)
-                    .FirstOrDefault();
-
-                newMap[name] = map[key];
-            }
-
-            return newMap;
-        }
-
-        private AnyValueMap ConvertDateTimeToUtc(AnyValueMap map)
-        {
-            AnyValueMap newMap = new AnyValueMap();
-            foreach (var key in map.Keys)
-            {
-                if (map[key] is DateTime time)
-                {
-                    newMap[key] = DateTime.SpecifyKind(time, DateTimeKind.Utc);
-                }
-                else
-                {
-                    newMap[key] = map[key];
-                }
-            }
-            return newMap;
         }
 
         /// <summary>
@@ -578,7 +499,7 @@ namespace PipServices3.SqlServer.Persistence
             if (!string.IsNullOrWhiteSpace(filter))
                 query += " WHERE " + filter;
 
-            if (!string.IsNullOrWhiteSpace(filter))
+            if (!string.IsNullOrWhiteSpace(sort))
                 query += " ORDER BY " + sort;
             else
                 query += " ORDER BY 1";
@@ -764,6 +685,12 @@ namespace PipServices3.SqlServer.Persistence
 
         protected virtual void AddParameter(SqlCommand cmd, string name, object value)
         {
+            if (value is T || value is Dictionary<string, object>)
+            {
+                cmd.Parameters.AddWithValue(name, JsonConverter.ToJson(value));
+                return;
+            }
+
             cmd.Parameters.AddWithValue(name, value);
         }
 
@@ -800,6 +727,14 @@ namespace PipServices3.SqlServer.Persistence
         {
             using (var reader = await cmd.ExecuteReaderAsync())
             {
+                var schemaTable = reader.GetSchemaTable();
+                var columnTypes = new Dictionary<string, string>();
+
+                foreach (DataRow row in schemaTable.Rows)
+                {
+                    columnTypes[row["ColumnName"].ToString()] = row["DataTypeName"].ToString();
+                }
+
                 DataTable table = new DataTable();
                 table.Load(reader);
 
@@ -809,10 +744,33 @@ namespace PipServices3.SqlServer.Persistence
                     AnyValueMap map = new AnyValueMap();
                     foreach (DataColumn column in table.Columns)
                     {
+                        var columnType = columnTypes.TryGetValue(column.ColumnName, out string type) ? type : null;
+
                         var value = row[column];
-                        if (row[column] != DBNull.Value)
+                        if (value != DBNull.Value)
                         {
-                            map[column.ColumnName] = value;
+                            if (columnType.Contains("varchar") && 
+                                value is string str && 
+                                str.StartsWith("{") &&
+                                str.EndsWith("}"))
+                            {
+                                try
+                                {
+                                    map[column.ColumnName] = new AnyValueMap(MapConverter.ToMap(JsonConverter.FromJson(value.ToString())));
+                                    continue;
+                                }
+                                catch
+                                { }
+                            }
+
+                            if (value is DateTime time)
+                            {
+                                map[column.ColumnName] = time;
+                            }
+                            else
+                            {
+                                map[column.ColumnName] = value;
+                            }
                         }
                     }
 

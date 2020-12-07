@@ -20,13 +20,13 @@ namespace PipServices3.SqlServer.Persistence
     /// ### Configuration parameters ###
     /// 
     /// connection(s):
-    /// - discovery_key:             (optional) a key to retrieve the connection from <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a>
+    /// - discovery_key:             (optional) a key to retrieve the connection from <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a>
     /// - host:                      host name or IP address
     /// - port:                      port number (default: 27017)
     /// - uri:                       resource URI or connection string with all parameters in it
     /// 
     /// credential(s):
-    /// - store_key:                 (optional) a key to retrieve the credentials from <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_auth_1_1_i_credential_store.html">ICredentialStore</a>
+    /// - store_key:                 (optional) a key to retrieve the credentials from <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_auth_1_1_i_credential_store.html">ICredentialStore</a>
     /// - username:                  (optional) user name
     /// - password:                  (optional) user password
     /// 
@@ -40,16 +40,16 @@ namespace PipServices3.SqlServer.Persistence
     /// 
     /// ### References ###
     /// 
-    /// - *:logger:*:*:1.0           (optional) <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_log_1_1_i_logger.html">ILogger</a> components to pass log messages
-    /// - *:discovery:*:*:1.0        (optional) <a href="https://rawgit.com/pip-services3-dotnet/pip-services3-components-dotnet/master/doc/api/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a> services
+    /// - *:logger:*:*:1.0           (optional) <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_log_1_1_i_logger.html">ILogger</a> components to pass log messages
+    /// - *:discovery:*:*:1.0        (optional) <a href="https://pip-services3-dotnet.github.io/pip-services3-components-dotnet/interface_pip_services_1_1_components_1_1_connect_1_1_i_discovery.html">IDiscovery</a> services
     /// - *:credential-store:*:*:1.0 (optional) Credential stores to resolve credentials
     /// </summary>
     public class SqlServerConnection : IReferenceable, IReconfigurable, IOpenable
     {
         private ConfigParams _defaultConfig = ConfigParams.FromTuples(
-            "options.connect_timeout", 15000,
-            "options.request_timeout", 15000,
-            "options.idle_timeout", 10000,
+            "options.connect_timeout", 15,
+            "options.connect_retry_count", 1,
+            "options.connect_retry_interval", 10,
             "options.max_pool_size", 3
         );
 
@@ -167,13 +167,15 @@ namespace PipServices3.SqlServer.Persistence
         {
             var maxPoolSize = _options.GetAsNullableInteger("max_pool_size");
             var connectTimeout = _options.GetAsNullableInteger("connect_timeout");
-            var idleTimeout = _options.GetAsNullableInteger("idle_timeout");
+            var connectRetryCount = _options.GetAsNullableInteger("connect_retry_count");
+            var connectRetryInterval = _options.GetAsNullableInteger("connect_retry_interval");
 
             ConfigParams settings = new ConfigParams();
 
-            //if (maxPoolSize.HasValue) settings["Maximum Pool Size"] = maxPoolSize.Value.ToString();
-            //if (connectTimeout.HasValue) settings["Timeout"] = connectTimeout.Value.ToString();
-            //if (idleTimeout.HasValue) settings["Keepalive"] = idleTimeout.Value.ToString();
+            if (maxPoolSize.HasValue) settings["Max Pool Size"] = maxPoolSize.Value.ToString();
+            if (connectTimeout.HasValue) settings["Connection Timeout"] = connectTimeout.Value.ToString();
+            if (connectRetryCount.HasValue) settings["ConnectRetryCount"] = connectRetryCount.Value.ToString();
+            if (connectRetryInterval.HasValue) settings["ConnectRetryInterval"] = connectRetryInterval.Value.ToString();
 
             return settings;
         }

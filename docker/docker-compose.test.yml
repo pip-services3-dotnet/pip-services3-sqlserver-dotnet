@@ -9,10 +9,10 @@ services:
     depends_on:
       - sqlserver
     environment:
-      - SQLSERVER_HOST=sqlserver
-      - SQLSERVER_PORT=1433
+      - SQLSERVER_SERVICE_HOST=sqlserver
+      - SQLSERVER_SERVICE_PORT=1433
       - SQLSERVER_USER=sa
-      - SQLSERVER_PASSWORD=sqlserver_123
+      - SQLSERVER_PASS=sqlserver_123
       - SQLSERVER_DB=master
 
   sqlserver:
@@ -21,6 +21,5 @@ services:
     environment:
       ACCEPT_EULA: Y
       SA_PASSWORD: sqlserver_123
-    # ports:
-    #   - "1433:1433"
-          
+    ports:
+      - "1433:1433"

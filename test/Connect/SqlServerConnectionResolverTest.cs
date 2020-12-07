@@ -22,8 +22,7 @@ namespace PipServices3.SqlServer.Connect
             resolver.Configure(dbConfig);
 
             var connectionString = await resolver.ResolveAsync(null);
-            Assert.Contains("Data Source='localhost'", connectionString);
-            Assert.DoesNotContain("Port", connectionString);
+            Assert.Contains("Data Source='tcp:localhost,1433'", connectionString);
             Assert.Contains("Initial Catalog='test'", connectionString);
             Assert.Contains("User Id='sa'", connectionString);
             Assert.Contains("Password='pwd#123'", connectionString);
