@@ -12,8 +12,13 @@ namespace PipServices3.SqlServer.Persistence
         public SqlServerDummyPersistence()
             : base("dummies")
         {
-            AutoCreateObject("CREATE TABLE [dummies] ([id] VARCHAR(32) PRIMARY KEY, [key] VARCHAR(50), [content] VARCHAR(MAX), create_time_utc DATETIME, sub_dummy NVARCHAR(MAX))"); 
-            EnsureIndex("dummies_key", new Dictionary<string, bool> { { "key", true } }, new IndexOptions { Unique = true });
+        }
+
+        protected override void DefineSchema()
+        {
+            ClearSchema();
+            EnsureSchema($"CREATE TABLE [{_tableName}] ([id] VARCHAR(32) PRIMARY KEY, [key] VARCHAR(50), [content] VARCHAR(MAX), create_time_utc DATETIME, sub_dummy NVARCHAR(MAX))");
+            EnsureIndex($"{_tableName}_key", new Dictionary<string, bool> { { "key", true } }, new IndexOptions { Unique = true });
         }
 
         public async Task<DataPage<Dummy>> GetPageByFilterAsync(string correlationId, FilterParams filter, PagingParams paging)
