@@ -17,7 +17,7 @@ namespace PipServices3.SqlServer.Persistence
             ClearSchema();
             EnsureTable();
             EnsureSchema("ALTER TABLE [dummies_json] ADD [data_key] AS JSON_VALUE([data],'$.key')");
-            EnsureIndex($"{_tableName}_json_key", new Dictionary<string, bool> { { "data_key", true } }, new IndexOptions { Unique = true });
+            EnsureIndex($"{_tableName}_key", new Dictionary<string, bool> { { "data_key", true } }, new IndexOptions { Unique = true });
         }
 
         public async Task<DataPage<Dummy>> GetPageByFilterAsync(string correlationId, FilterParams filter, PagingParams paging)
