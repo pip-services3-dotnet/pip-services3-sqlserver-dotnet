@@ -321,7 +321,7 @@ namespace PipServices3.SqlServer.Persistence
         /// Opens the component.
         /// </summary>
         /// <param name="correlationId">(optional) transaction id to trace execution through call chain.</param>
-        public async virtual Task OpenAsync(string correlationId)
+        public virtual async Task OpenAsync(string correlationId)
         {
             if (IsOpen()) return;
 

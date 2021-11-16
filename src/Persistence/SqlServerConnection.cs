@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using PipServices3.Commons.Config;
 using PipServices3.Commons.Errors;
@@ -8,6 +9,7 @@ using PipServices3.Components.Log;
 using PipServices3.SqlServer.Connect;
 using System.Linq;
 using System.Data.SqlClient;
+using Renci.SshNet;
 
 namespace PipServices3.SqlServer.Persistence
 {
@@ -46,6 +48,8 @@ namespace PipServices3.SqlServer.Persistence
     /// </summary>
     public class SqlServerConnection : IReferenceable, IReconfigurable, IOpenable
     {
+        private ConfigParams _config;
+        
         private ConfigParams _defaultConfig = ConfigParams.FromTuples(
             "options.connect_timeout", 15,
             "options.connect_retry_count", 1,
@@ -64,6 +68,11 @@ namespace PipServices3.SqlServer.Persistence
         protected ConfigParams _options = new ConfigParams();
 
         /// <summary>
+        /// The SSH configuration object.
+        /// </summary>
+        private ConfigParams _sshConfigs = new ConfigParams();
+
+        /// <summary>
         /// The SqlServer connection object.
         /// </summary>
         protected SqlConnection _connection;
@@ -72,6 +81,20 @@ namespace PipServices3.SqlServer.Persistence
         /// The database name.
         /// </summary>
         protected string _databaseName;
+
+        /// <summary>
+        /// The database name.
+        /// </summary>
+        private string _databaseServer;
+        
+        /// <summary>
+        /// The flag enabled ssh.
+        /// </summary>
+        private bool _sshEnabled;
+        
+        private SshClient _sshClient;
+
+        private string _sshPort;
 
         /// <summary>
         /// The logger.
@@ -118,11 +141,14 @@ namespace PipServices3.SqlServer.Persistence
         /// <param name="config">configuration parameters to be set.</param>
         public virtual void Configure(ConfigParams config)
         {
-            config = config.SetDefaults(_defaultConfig);
+            _config = config.SetDefaults(_defaultConfig);
+            _options = _options.Override(_config.GetSection("options"));
 
-            _connectionResolver.Configure(config);
+            _databaseServer = _config.GetAsNullableString("connection.host");
+            _sshConfigs = _sshConfigs.Override(_config.GetSection("ssh"));
+            _sshEnabled = _sshConfigs.GetAsBooleanWithDefault("enabled", false);
 
-            _options = _options.Override(config.GetSection("options"));
+            _connectionResolver.Configure(_config);
         }
 
         /// <summary>
@@ -138,8 +164,56 @@ namespace PipServices3.SqlServer.Persistence
         /// Opens the component.
         /// </summary>
         /// <param name="correlationId">(optional) transaction id to trace execution through call chain.</param>
-        public async virtual Task OpenAsync(string correlationId)
+        public virtual async Task OpenAsync(string correlationId)
         {
+            if (_sshEnabled)
+            {
+                await MsSqlWithSshOpenAsync(correlationId);
+            }
+            else
+            {
+                var connectionString = await _connectionResolver.ResolveAsync(correlationId);
+
+                _logger.Trace(correlationId, "Connecting to sqlserver...");
+
+                try
+                {
+                    var settings = ComposeSettings();
+                    var connString = connectionString.TrimEnd(';') + ";" + JoinParams(settings);
+
+                    _connection = new SqlConnection(connString);
+                    _databaseName = _connection.Database;
+
+                    // Try to connect
+                    await _connection.OpenAsync();
+
+                    _logger.Debug(correlationId, "Connected to sqlserver database {0}", _databaseName);
+                }
+                catch (Exception ex)
+                {
+                    throw new ConnectionException(correlationId, "CONNECT_FAILED", "Connection to sqlserver failed", ex);
+                }
+            }
+        }
+        
+        private async Task MsSqlWithSshOpenAsync(string correlationId)
+        {
+            var sshHost = _sshConfigs.GetAsNullableString("host");
+            var sshUsername = _sshConfigs.GetAsNullableString("username");
+            var sshPassword = _sshConfigs.GetAsNullableString("password");
+            var sshKeyFile = _sshConfigs.GetAsNullableString("key_file_path");
+            var sshKeepAliveInterval = _sshConfigs.GetAsNullableTimeSpan("keep_alive_interval");
+
+            var (sshClient, localPort) = ConnectSsh(sshHost, sshUsername, sshPassword, sshKeyFile, 
+                databaseServer: _databaseServer, sshKeepAliveInterval: sshKeepAliveInterval);
+            
+            _sshClient = sshClient;
+            _sshPort = localPort.ToString();
+            
+            _config.Set("connection.host", "127.0.0.1");
+            _config.Set("connection.port", _sshPort);
+            _connectionResolver.Configure(_config);
+
             var connectionString = await _connectionResolver.ResolveAsync(correlationId);
 
             _logger.Trace(correlationId, "Connecting to sqlserver...");
@@ -189,8 +263,16 @@ namespace PipServices3.SqlServer.Persistence
         /// Closes component and frees used resources.
         /// </summary>
         /// <param name="correlationId">(optional) transaction id to trace execution through call chain.</param>
-        public async virtual Task CloseAsync(string correlationId)
+        public virtual async Task CloseAsync(string correlationId)
         {
+            if (_sshEnabled)
+            {
+                if (_sshClient.IsConnected)
+                {
+                    _sshClient.Disconnect();
+                }
+            }
+            
             // Todo: Properly close the connection
             _connection.Close();
 
@@ -198,6 +280,51 @@ namespace PipServices3.SqlServer.Persistence
             _databaseName = null;
 
             await Task.Delay(0);
+        }
+        
+        private static (SshClient SshClient, uint Port) ConnectSsh(string sshHostName, string sshUserName, string sshPassword = null,
+            string sshKeyFile = null, string sshPassPhrase = null, int sshPort = 22, string databaseServer = "localhost", int databasePort = 3306,
+            TimeSpan? sshKeepAliveInterval = null)
+        {
+            // check arguments
+            if (string.IsNullOrEmpty(sshHostName))
+                throw new ArgumentException($"{nameof(sshHostName)} must be specified.", nameof(sshHostName));
+            if (string.IsNullOrEmpty(sshUserName))
+                throw new ArgumentException($"{nameof(sshUserName)} must be specified.", nameof(sshUserName));
+            if (string.IsNullOrEmpty(sshPassword) && string.IsNullOrEmpty(sshKeyFile))
+                throw new ArgumentException($"One of {nameof(sshPassword)} and {nameof(sshKeyFile)} must be specified.");
+            if (string.IsNullOrEmpty(databaseServer))
+                throw new ArgumentException($"{nameof(databaseServer)} must be specified.", nameof(databaseServer));
+
+            // define the authentication methods to use (in order)
+            var authenticationMethods = new List<AuthenticationMethod>();
+            if (!string.IsNullOrEmpty(sshKeyFile))
+            {
+                authenticationMethods.Add(new PrivateKeyAuthenticationMethod(sshUserName,
+                    new PrivateKeyFile(sshKeyFile, string.IsNullOrEmpty(sshPassPhrase) ? null : sshPassPhrase)));
+            }
+            if (!string.IsNullOrEmpty(sshPassword))
+            {
+                authenticationMethods.Add(new PasswordAuthenticationMethod(sshUserName, sshPassword));
+            }
+
+            // connect to the SSH server
+            var sshClient = new SshClient(new ConnectionInfo(sshHostName, sshPort, sshUserName, authenticationMethods.ToArray())
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+            });
+
+            if (sshKeepAliveInterval.HasValue)
+                sshClient.KeepAliveInterval = sshKeepAliveInterval.Value;
+
+            sshClient.Connect();
+
+            // forward a local port to the database server and port, using the SSH server
+            var forwardedPort = new ForwardedPortLocal("127.0.0.1", databaseServer, (uint) databasePort);
+            sshClient.AddForwardedPort(forwardedPort);
+            forwardedPort.Start();
+
+            return (sshClient, forwardedPort.BoundPort);
         }
     }
 }
