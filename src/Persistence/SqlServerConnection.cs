@@ -233,6 +233,7 @@ namespace PipServices3.SqlServer.Persistence
             }
             catch (Exception ex)
             {
+                _logger.Error(correlationId, ex.ToString());
                 throw new ConnectionException(correlationId, "CONNECT_FAILED", "Connection to sqlserver failed", ex);
             }
         }
