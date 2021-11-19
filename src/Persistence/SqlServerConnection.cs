@@ -283,7 +283,7 @@ namespace PipServices3.SqlServer.Persistence
         }
         
         private static (SshClient SshClient, uint Port) ConnectSsh(string sshHostName, string sshUserName, string sshPassword = null,
-            string sshKeyFile = null, string sshPassPhrase = null, int sshPort = 22, string databaseServer = "localhost", int databasePort = 3306,
+            string sshKeyFile = null, string sshPassPhrase = null, int sshPort = 22, string databaseServer = "localhost", int databasePort = 1433,
             TimeSpan? sshKeepAliveInterval = null)
         {
             // check arguments
