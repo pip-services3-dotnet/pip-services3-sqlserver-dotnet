@@ -83,9 +83,14 @@ namespace PipServices3.SqlServer.Persistence
         protected string _databaseName;
 
         /// <summary>
-        /// The database name.
+        /// The database server.
         /// </summary>
         private string _databaseServer;
+        
+        /// <summary>
+        /// The database port.
+        /// </summary>
+        private int _databasePort;
         
         /// <summary>
         /// The flag enabled ssh.
@@ -145,6 +150,7 @@ namespace PipServices3.SqlServer.Persistence
             _options = _options.Override(_config.GetSection("options"));
 
             _databaseServer = _config.GetAsNullableString("connection.host");
+            _databasePort = _config.GetAsIntegerWithDefault("connection.port", 1433);
             _sshConfigs = _sshConfigs.Override(_config.GetSection("ssh"));
             _sshEnabled = _sshConfigs.GetAsBooleanWithDefault("enabled", false);
 
@@ -205,7 +211,7 @@ namespace PipServices3.SqlServer.Persistence
             var sshKeepAliveInterval = _sshConfigs.GetAsNullableTimeSpan("keep_alive_interval");
 
             var (sshClient, localPort) = ConnectSsh(sshHost, sshUsername, sshPassword, sshKeyFile, 
-                databaseServer: _databaseServer, sshKeepAliveInterval: sshKeepAliveInterval);
+                databaseServer: _databaseServer, databasePort: _databasePort, sshKeepAliveInterval: sshKeepAliveInterval);
             
             _sshClient = sshClient;
             _sshPort = localPort.ToString();
