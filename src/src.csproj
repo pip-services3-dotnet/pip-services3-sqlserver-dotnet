@@ -6,8 +6,8 @@
     <RootNamespace>PipServices3.SqlServer</RootNamespace>
     <ApplicationIcon />
     <Win32Resource />
-    <Version>3.3.4</Version>
-    <Authors>Sergey Seroukhov, Denis Kuznetsov</Authors>
+    <Version>3.3.5</Version>
+    <Authors>Sergey Seroukhov, Denis Kuznetsov, Serhii Khoroshykh, Aleksey Dvoykin</Authors>
     <Copyright>Conceptual Vision Consulting LLC. 2017-2021</Copyright>
     <Description>SqlServer components for Pip.Services in .NET</Description>
     <Company>Conceptual Vision Consulting LLC.</Company>

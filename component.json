@@ -1,6 +1,6 @@
 {
     "name": "pip-services3-sqlserver",
     "registry": "pipdevs",
-    "version": "3.3.4",
+    "version": "3.3.5",
     "build": "0"
 }
