@@ -630,7 +630,7 @@ namespace PipServices3.SqlServer.Persistence
             if (!string.IsNullOrWhiteSpace(filter))
                 query += " WHERE " + filter;
 
-            query += string.Format(" OFFSET {0} LIMIT 1", pos);
+            query += string.Format(" ORDER BY (SELECT NULL) OFFSET {0} ROWS FETCH NEXT 1 ROWS ONLY", pos);
 
             var items = await ExecuteReaderAsync(query);
 
