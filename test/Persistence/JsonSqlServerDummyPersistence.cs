@@ -9,9 +9,15 @@ namespace PipServices3.SqlServer.Persistence
         public JsonSqlServerDummyPersistence()
             : base("dummies_json")
         {
+        }
+
+
+        protected override void DefineSchema()
+        {
+            ClearSchema();
             EnsureTable();
-            AutoCreateObject("ALTER TABLE [dummies_json] ADD [data_key] AS JSON_VALUE([data],'$.key')");
-            EnsureIndex("dummies_json_key", new Dictionary<string, bool> { { "data_key", true } }, new IndexOptions { Unique = true });
+            EnsureSchema("ALTER TABLE [dummies_json] ADD [data_key] AS JSON_VALUE([data],'$.key')");
+            EnsureIndex($"{_tableName}_key", new Dictionary<string, bool> { { "data_key", true } }, new IndexOptions { Unique = true });
         }
 
         public async Task<DataPage<Dummy>> GetPageByFilterAsync(string correlationId, FilterParams filter, PagingParams paging)

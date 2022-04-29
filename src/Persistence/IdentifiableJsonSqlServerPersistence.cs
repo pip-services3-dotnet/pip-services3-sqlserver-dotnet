@@ -26,7 +26,7 @@ namespace PipServices3.SqlServer.Persistence
             var query = "CREATE TABLE " + QuoteIdentifier(_tableName)
             + " ([id] " + idType + " PRIMARY KEY, [data] " + dataType + ")";
 
-            AutoCreateObject(query);
+            EnsureSchema(query);
         }
 
         /// <summary>

@@ -106,12 +106,12 @@ class MySqlServerPersistence : IdentifiableJsonSqlServerPersistence<MyObject, st
 
     }
 
-    void GetPageByFilter(string correlationId, FilterParams filter, PagingParams paging)
+    public async Task<DataPage<MyObject>> GetPageByFilter(string correlationId, FilterParams filter, PagingParams paging)
     {
-        base.GetPageByFilterAsync(correlationId, this.ComposeFilter(filter), paging, select: "id");
+        return await base.GetPageByFilterAsync(correlationId, this.ComposeFilter(filter), paging, select: "id");
     }
 
-    async void GetOneByKey(string correlationId, string key)
+    public async Task<MyObject> GetOneByKey(string correlationId, string key)
     {
         string query = "SELECT * FROM " + this.QuoteIdentifier(this._tableName) + " WHERE [key]=@1";
         List<string> param = new List<string> { key };
@@ -125,6 +125,8 @@ class MySqlServerPersistence : IdentifiableJsonSqlServerPersistence<MyObject, st
             this._logger.Trace(correlationId, "Retrieved from %s with key = %s", this._tableName, key);
 
         item = this.ConvertToPublic(item);
+
+        return item;
 
     }
 }
@@ -177,12 +179,12 @@ class MySqlServerPersistence : IdentifiableJsonSqlServerPersistence<MyObject, st
 
     }
 
-    DataPage<MyObject> GetPageByFilter(string correlationId, FilterParams filter, PagingParams paging)
+    public async Task<DataPage<MyObject>> GetPageByFilter(string correlationId, FilterParams filter, PagingParams paging)
     {
-        return base.GetPageByFilterAsync(correlationId, this.ComposeFilter(filter), paging, "id").Result;
+        return await base.GetPageByFilterAsync(correlationId, this.ComposeFilter(filter), paging, "id").Result;
     }
 
-    async void GetOneByKey(string correlationId, string key)
+    public async Task<MyObject> GetOneByKey(string correlationId, string key)
     {
         string query = "SELECT * FROM " + this.QuoteIdentifier(this._tableName) + " WHERE JSON_VALUE([data],'$.key')=@1";
         List<string> param = new List<string> { key };
@@ -196,6 +198,8 @@ class MySqlServerPersistence : IdentifiableJsonSqlServerPersistence<MyObject, st
             this._logger.Trace(correlationId, "Retrieved from %s with key = %s", this._tableName, key);
 
         item = this.ConvertToPublic(item);
+
+        return item;
     }
 }
 ```

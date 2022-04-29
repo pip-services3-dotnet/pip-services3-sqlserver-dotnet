@@ -110,7 +110,7 @@ namespace PipServices3.SqlServer.Persistence
             "options.debug", true
         );
 
-        private readonly List<string> _autoObjects = new List<string>();
+        private readonly List<string> _schemaStatements = new List<string>();
 
 
         /// <summary>
@@ -241,16 +241,42 @@ namespace PipServices3.SqlServer.Persistence
 
             builder.Append("(").Append(fields).Append(")");
 
-            AutoCreateObject(builder.ToString());
+            EnsureSchema(builder.ToString());
         }
 
         /// <summary>
-        /// Adds index definition to create it on opening
+        /// Adds a statement to schema definition.
         /// </summary>
-        /// <param name="dmlStatement">DML statement to autocreate database object</param>
-        protected void AutoCreateObject(string dmlStatement)
+        /// <param name="dmlStatement">a statement to be added to the schema</param>
+        [Obsolete("This is a deprecated method. Use EnsureSchema instead.", false)]
+        protected void AutoCreateObject(string schemaStatement)
         {
-            _autoObjects.Add(dmlStatement);
+            EnsureSchema(schemaStatement);
+        }
+
+        /// <summary>
+        /// Adds a statement to schema definition
+        /// </summary>
+        /// <param name="dmlStatement">a statement to be added to the schema</param>
+        protected void EnsureSchema(string dmlStatement)
+        {
+            _schemaStatements.Add(dmlStatement);
+        }
+        
+        /// <summary>
+        /// Clears all auto-created objects
+        /// </summary>
+        protected void ClearSchema()
+        {
+            _schemaStatements.Clear();
+        }
+
+        /// <summary>
+        /// Defines database schema via auto create objects or convenience methods.
+        /// </summary>
+        protected virtual void DefineSchema()
+        {
+            // Todo: override in chile classes
         }
 
         /// <summary>
@@ -295,7 +321,7 @@ namespace PipServices3.SqlServer.Persistence
         /// Opens the component.
         /// </summary>
         /// <param name="correlationId">(optional) transaction id to trace execution through call chain.</param>
-        public async virtual Task OpenAsync(string correlationId)
+        public virtual async Task OpenAsync(string correlationId)
         {
             if (IsOpen()) return;
 
@@ -314,8 +340,11 @@ namespace PipServices3.SqlServer.Persistence
             _client = _connection.GetConnection();
             _databaseName = _connection.GetDatabaseName();
 
+            // Define database schema
+            DefineSchema();
+
             // Recreate objects
-            await AutoCreateObjectsAsync(correlationId);
+            await CreateSchemaAsync(correlationId);
 
             _opened = true;
         }
@@ -359,9 +388,9 @@ namespace PipServices3.SqlServer.Persistence
             }
         }
 
-        protected async Task AutoCreateObjectsAsync(string correlationId)
+        protected async Task CreateSchemaAsync(string correlationId)
         {
-            if (_autoObjects == null || _autoObjects.Count == 0)
+            if (_schemaStatements == null || _schemaStatements.Count == 0)
                 return;
 
             // If table already exists then exit
@@ -373,7 +402,7 @@ namespace PipServices3.SqlServer.Persistence
             // Run all DML commands
             try
             {
-                foreach (var dml in _autoObjects)
+                foreach (var dml in _schemaStatements)
                 {
                     await ExecuteNonQuery(dml);
                 }
@@ -563,7 +592,7 @@ namespace PipServices3.SqlServer.Persistence
             if (!string.IsNullOrWhiteSpace(filter))
                 query += " WHERE " + filter;
 
-            if (!string.IsNullOrWhiteSpace(filter))
+            if (!string.IsNullOrWhiteSpace(sort))
                 query += " ORDER BY " + sort;
 
             var result = await ExecuteReaderAsync(query);
@@ -601,7 +630,7 @@ namespace PipServices3.SqlServer.Persistence
             if (!string.IsNullOrWhiteSpace(filter))
                 query += " WHERE " + filter;
 
-            query += string.Format(" OFFSET {0} LIMIT 1", pos);
+            query += string.Format(" ORDER BY (SELECT NULL) OFFSET {0} ROWS FETCH NEXT 1 ROWS ONLY", pos);
 
             var items = await ExecuteReaderAsync(query);
 
